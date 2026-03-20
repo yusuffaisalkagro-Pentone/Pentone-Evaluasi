@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pentone — Evaluasi Produksi</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #F7F4EF;
+    --surface: #FFFFFF;
+    --border: #E2DDD6;
+    --text: #1A1814;
+    --muted: #7A746C;
+    --accent: #C8460A;
+    --accent-light: #F5E8E2;
+    --accent-mid: #E8A080;
+    --green: #2D6A4F;
+    --green-light: #E8F5EE;
+    --amber: #92600A;
+    --amber-light: #FDF3E3;
+    --red: #9B1C1C;
+    --red-light: #FEF2F2;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Sora', sans-serif;
+    --radius: 10px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); font-family: var(--sans); color: var(--text); min-height: 100vh; }
+
+  .app-header {
+    background: var(--text); color: #F7F4EF;
+    padding: 0 1.5rem; height: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .app-header .logo { font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; opacity: 0.9; }
+  .app-header .logo span { color: var(--accent-mid); }
+  .tab-bar { display: flex; gap: 4px; }
+  .tab-btn { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-family: var(--sans); font-weight: 500; cursor: pointer; border: none; background: transparent; color: rgba(247,244,239,0.5); transition: all 0.2s; }
+  .tab-btn.active { background: rgba(247,244,239,0.12); color: #F7F4EF; }
+
+  .container { max-width: 680px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+  .form-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; box-shadow: var(--shadow); margin-bottom: 1rem; }
+
+  .steps { display: flex; align-items: center; margin-bottom: 1.75rem; }
+  .step-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .step-circle { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; font-family: var(--mono); border: 1.5px solid var(--border); background: var(--bg); color: var(--muted); transition: all 0.3s; }
+  .step-circle.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .step-circle.done { background: var(--green); border-color: var(--green); color: white; }
+  .step-lbl { font-size: 10px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  .step-lbl.active { color: var(--accent); }
+  .step-line { flex: 1; height: 1px; background: var(--border); margin: 0 6px; margin-bottom: 14px; }
+
+  .section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+  .field { margin-bottom: 1rem; }
+  .field label { font-size: 12px; font-weight: 500; color: var(--muted); display: block; margin-bottom: 5px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-family: var(--sans); font-size: 14px; color: var(--text); background: var(--bg); outline: none; transition: border-color 0.2s; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); background: white; }
+  .field textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  .reject-badge { display: inline-block; margin-top: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-family: var(--mono); background: var(--accent-light); color: var(--accent); font-weight: 500; }
+
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--muted); transition: all 0.15s; user-select: none; }
+  .chip:hover { border-color: var(--accent-mid); color: var(--accent); }
+  .chip.on { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+  .chip-group-label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin: 10px 0 5px; }
+
+  .impact-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .impact-btn { flex: 1; min-width: 80px; padding: 10px 8px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: var(--bg); color: var(--muted); text-align: center; transition: all 0.15s; }
+  .impact-btn.on.minor { background: var(--green-light); border-color: var(--green); color: var(--green); }
+  .impact-btn.on.major { background: var(--amber-light); border-color: var(--amber); color: var(--amber); }
+  .impact-btn.on.critical { background: var(--red-light); border-color: var(--red); color: var(--red); }
+
+  .nav-row { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; gap: 8px; }
+  .btn { padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; font-family: var(--sans); cursor: pointer; border: 1px solid var(--border); background: var(--bg); color: var(--muted); transition: all 0.15s; }
+  .btn:hover { border-color: var(--muted); color: var(--text); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn.primary:hover { background: #A33808; }
+  .btn.success { background: var(--green); border-color: var(--green); color: white; flex: 1; }
+  .btn.success:hover { background: #1F5038; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .summary-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; gap: 12px; }
+  .summary-row:last-child { border-bottom: none; }
+  .s-key { color: var(--muted); font-size: 12px; min-width: 150px; }
+  .s-val { color: var(--text); font-weight: 500; text-align: right; font-size: 13px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; font-family: var(--mono); }
+  .badge.minor { background: var(--green-light); color: var(--green); }
+  .badge.major { background: var(--amber-light); color: var(--amber); }
+  .badge.critical { background: var(--red-light); color: var(--red); }
+
+  .history-empty { text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: 14px; }
+  .history-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 10px; box-shadow: var(--shadow); cursor: pointer; transition: border-color 0.15s; }
+  .history-card:hover { border-color: var(--accent-mid); }
+  .hc-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .hc-id { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 500; }
+  .hc-date { font-size: 11px; color: var(--muted); }
+  .hc-customer { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .hc-meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .hc-tag { font-size: 11px; color: var(--muted); background: var(--bg); padding: 2px 8px; border-radius: 20px; border: 1px solid var(--border); }
+  .hc-sources { font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(26,24,20,0.5); z-index: 200; overflow-y: auto; padding: 2rem 1rem; }
+  .modal-overlay.open { display: block; }
+  .modal { background: var(--surface); border-radius: var(--radius); max-width: 600px; margin: 0 auto; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.15); }
+  .modal-header { background: var(--text); color: #F7F4EF; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; }
+  .modal-header .m-id { font-family: var(--mono); font-size: 13px; color: var(--accent-mid); }
+  .modal-close { background: none; border: none; color: rgba(247,244,239,0.6); font-size: 20px; cursor: pointer; padding: 0 4px; }
+  .modal-body { padding: 1.25rem; }
+  .modal-del { color: var(--red); border-color: var(--red); background: var(--red-light); }
+
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.25rem; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; box-shadow: var(--shadow); }
+  .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 4px; }
+  .stat-val { font-size: 24px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .chart-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .chart-bar-label { width: 140px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+  .chart-bar-track { flex: 1; height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+  .chart-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.4s; }
+  .chart-bar-count { font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 16px; }
+
+  .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: var(--text); color: #F7F4EF; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-family: var(--sans); z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--red); }
+
+  .loading { text-align: center; padding: 2rem; color: var(--muted); font-size: 13px; }
+  .info-note { font-size: 12px; color: var(--muted); background: var(--bg); border-radius: 8px; padding: 10px 12px; margin-top: 6px; }
+
+  @media (max-width: 480px) {
+    .grid3 { grid-template-columns: 1fr 1fr; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .app-header .tab-bar .tab-btn { padding: 6px 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="logo">PENTONE <span>/</span> PRODUKSI</div>
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('form')">+ Input</button>
+    <button class="tab-btn" onclick="showTab('history')">Riwayat</button>
+    <button class="tab-btn" onclick="showTab('stats')">Statistik</button>
+  </div>
+</div>
+
+<div class="container">
+  <div id="tab-form">
+    <div class="form-card">
+      <div class="steps" id="steps-nav"></div>
+      <div id="form-body"></div>
+    </div>
+  </div>
+  <div id="tab-history" style="display:none;"><div id="history-list"></div></div>
+  <div id="tab-stats" style="display:none;"><div id="stats-body"></div></div>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="m-id" id="modal-id"></div>
+        <div style="font-size:15px;font-weight:600;margin-top:2px;" id="modal-customer"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://pmboyptqouippvowtact.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_4GPt7he9GdfNXc68Q1LeTA_GKsiK-dZ';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const STEPS = ['Info Order','Sumber Error','Detail Error','Feedback','Ringkasan'];
+const ERROR_SOURCES = [
+  {group:'Pre-press / Setting', items:['Setting plate','Setting klise','Setting pisau']},
+  {group:'Operator', items:['Operator cetak','Operator foil','Operator pond']},
+  {group:'Finishing', items:['Ibu-ibu finishing','THL / Part-time','SPV Finishing']},
+  {group:'Vendor', items:['Vendor klise','Vendor pisau','Vendor digital printing']},
+  {group:'Internal', items:['Manager produksi','Staff produksi lapangan']},
+  {group:'Pengiriman', items:['Kurir']}
+];
+const ERROR_TYPES = ['Tidak mengikuti SOP','Salah / Reject','Salah jumlah'];
+const PRODUCTS = ['Undangan','Souvenir','LEVE Corporate Gift','Pentone for Business','Kombinasi'];
+
+let cur = 0;
+let form = fresh();
+let openRecord = null;
+
+function fresh() {
+  return {orderId:'',customer:'',product:'',qty:'',deadline:'',
+    tglMulaiFPS:'',tglStartProduksi:'',tglSelesaiProduksi:'',tglPengiriman:'',
+    hariProduksi:'',qtyReject:'',nominalReject:'',selectedSources:[],errorType:'',impact:'',
+    catatan:'',tindakan:'',feedbackManual:''};
+}
+
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isError?' error':'');
+  setTimeout(() => t.className='toast', 3000);
+}
+
+function showTab(t) {
+  ['form','history','stats'].forEach(id => {
+    document.getElementById('tab-'+id).style.display = id===t?'block':'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['form','history','stats'][i]===t);
+  });
+  if (t==='history') renderHistory();
+  if (t==='stats') renderStats();
+}
+
+function collect() {
+  const g = id => document.getElementById(id)?.value || '';
+  form.orderId = g('f-orderId') || form.orderId;
+  form.customer = g('f-customer') || form.customer;
+  form.product = g('f-product') || form.product;
+  form.qty = g('f-qty') || form.qty;
+  form.deadline = g('f-deadline') || form.deadline;
+  form.tglMulaiFPS = g('f-tglMulaiFPS') || form.tglMulaiFPS;
+  form.tglStartProduksi = g('f-tglStartProduksi') || form.tglStartProduksi;
+  form.tglSelesaiProduksi = g('f-tglSelesaiProduksi') || form.tglSelesaiProduksi;
+  form.tglPengiriman = g('f-tglPengiriman') || form.tglPengiriman;
+  form.hariProduksi = g('f-hariProduksi') || form.hariProduksi;
+  form.qtyReject = g('f-qtyReject') || form.qtyReject;
+  form.nominalReject = g('f-nominalReject') || form.nominalReject;
+  form.errorType = g('f-errorType') || form.errorType;
+  form.catatan = g('f-catatan') || form.catatan;
+  form.tindakan = g('f-tindakan') || form.tindakan;
+  form.feedbackManual = g('f-feedbackManual') || form.feedbackManual;
+}
+
+function go(d) { collect(); cur = Math.max(0, Math.min(4, cur+d)); render(); }
+function toggleSrc(v) {
+  const i = form.selectedSources.indexOf(v);
+  i>-1 ? form.selectedSources.splice(i,1) : form.selectedSources.push(v);
+  render();
+}
+function setImpact(v) { form.impact = v; render(); }
+
+function rejectPct() {
+  const q = parseFloat(form.qty)||0, r = parseFloat(form.qtyReject)||0;
+  if(q>0&&r>0) return ((r/q)*100).toFixed(1)+'%';
+  return null;
+}
+
+function renderSteps() {
+  document.getElementById('steps-nav').innerHTML = STEPS.map((s,i) => {
+    const cls = i<cur?'done':i===cur?'active':'';
+    const dot = i<cur?'✓':(i+1);
+    const lbl = i===cur?'active':'';
+    const line = i<STEPS.length-1?'<div class="step-line"></div>':'';
+    return `<div class="step-item"><div class="step-circle ${cls}">${dot}</div><div class="step-lbl ${lbl}">${s}</div></div>${line}`;
+  }).join('');
+}
+
+function render() {
+  renderSteps();
+  const b = document.getElementById('form-body');
+  if (cur===0) {
+    b.innerHTML = `
+      <div class="section-title">Informasi order</div>
+      <div class="grid2">
+        <div class="field"><label>No. Order / ID</label><input id="f-orderId" placeholder="ORD-2025-001" value="${form.orderId}"></div>
+        <div class="field"><label>Nama customer</label><input id="f-customer" placeholder="Nama customer" value="${form.customer}"></div>
+      </div>
+      <div class="field"><label>Produk</label>
+        <select id="f-product">
+          <option value="">— Pilih produk —</option>
+          ${PRODUCTS.map(p=>`<option ${form.product===p?'selected':''}>${p}</option>`).join('')}
+        </select>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Total order (pcs)</label><input id="f-qty" type="number" placeholder="0" value="${form.qty}"></div>
+        <div class="field"><label>Deadline customer</label><input id="f-deadline" type="date" value="${form.deadline}"></div>
+      </div>
+      <div class="section-title" style="margin-top:0.5rem;">Timeline produksi</div>
+      <div class="grid2">
+        <div class="field"><label>Tanggal mulai FPS</label><input id="f-tglMulaiFPS" type="date" value="${form.tglMulaiFPS}"></div>
+        <div class="field"><label>Start produksi (acc FPS)</label><input id="f-tglStartProduksi" type="date" value="${form.tglStartProduksi}"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Selesai produksi</label><input id="f-tglSelesaiProduksi" type="date" value="${form.tglSelesaiProduksi}"></div>
+        <div class="field"><label>Tanggal pengiriman</label><input id="f-tglPengiriman" type="date" value="${form.tglPengiriman}"></div>
+      </div>
+      <div class="field"><label>Total hari produksi</label><input id="f-hariProduksi" type="number" placeholder="Jumlah hari" value="${form.hariProduksi}"></div>
+      <div class="nav-row"><div></div><button class="btn primary" onclick="go(1)">Lanjut →</button></div>`;
+  }
+  else if (cur===1) {
+    b.innerHTML = `
+      <div class="section-title">Sumber error — pilih semua yang terlibat</div>
+      ${ERROR_SOURCES.map(g=>`
+        <div class="chip-group-label">${g.group}</div>
+        <div class="chip-group">${g.items.map(it=>`
+          <div class="chip ${form.selectedSources.includes(it)?'on':''}" onclick="toggleSrc('${it}')">${it}</div>
+        `).join('')}</div>
+      `).join('')}
+      <div class="nav-row">
+        <button class="btn" onclick="go(-1)">← Kembali</button>
+        <button class="btn primary" onclick="go(1)">Lanjut →</button>
+      </div>`;
+  }
+  else if (cur===2) {
+    const pct = rejectPct();
+    b.innerHTML = `
+      <div class="section-title">Detail error & tindakan</div>
+      <div class="field"><label>Jenis error</label>
+        <select id="f-errorType">
+          <option value="">— Pilih jenis error —</option>
+          ${ERROR_TYPES.map(t=>`<option ${form.errorType===t?'selected':''}>${t}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Jumlah reject (pcs)</label>
+        <input id="f-qtyReject" type="number" placeholder="0" value="${form.qtyReject}" oninput="updateReject()">
+        <div id="reject-badge">${pct?`<span class="reject-badge">${pct} dari total order</span>`:''}</div>
+      </div>
+      <div class="field"><label>Nominal reject (Rp)</label>
+        <input id="f-nominalReject" type="number" placeholder="0" value="${form.nominalReject}">
+        ${form.nominalReject?`<div style="margin-top:5px;"><span class="reject-badge">Rp ${parseInt(form.nominalReject).toLocaleString('id-ID')}</span></div>`:''}
+      </div>
+      <div class="field"><label>Tingkat dampak</label>
+        <div class="impact-row">
+          <div class="impact-btn minor ${form.impact==='Minor'?'on':''}" onclick="setImpact('Minor')">Minor</div>
+          <div class="impact-btn major ${form.impact==='Major'?'on':''}" onclick="setImpact('Major')">Major</div>
+          <div class="impact-btn critical ${form.impact==='Critical'?'on':''}" onclick="setImpact('Critical')">Critical</div>
+        </div>
+      </div>
+      <div class="field"><label>Catatan kejadian</label><textarea id="f-catatan" placeholder="Apa yang terjadi?">${form.catatan}</textarea></div>
+      <div class="field"><label>Tindakan yang diambil</label><textarea id="f-tindakan" placeholder="Tindakan penanganan...">${form.tindakan}</textarea></div>
+      <div class="nav-row">
+        <button class="btn" onclick="go(-1)">← Kembali</button>
+        <button class="btn primary" onclick="go(1)">Lanjut →</button>
+      </div>`;
+  }
+  else if (cur===3) {
+    b.innerHTML = `
+      <div class="section-title">Feedback tertulis manual</div>
+      <div class="field"><label>Feedback bebas — dari customer, tim, atau evaluasi pribadi</label>
+        <textarea id="f-feedbackManual" style="min-height:130px;" placeholder="Tulis apa adanya...">${form.feedbackManual}</textarea>
+      </div>
+      <div class="info-note">Bagian ini tidak terstruktur — tulis sejujurnya. Ini yang paling berharga untuk evaluasi ke depan.</div>
+      <div class="nav-row">
+        <button class="btn" onclick="go(-1)">← Kembali</button>
+        <button class="btn primary" onclick="go(1)">Lihat ringkasan →</button>
+      </div>`;
+  }
+  else if (cur===4) {
+    const pct = rejectPct();
+    const ic = (form.impact||'').toLowerCase();
+    b.innerHTML = `
+      <div class="section-title">Ringkasan evaluasi</div>
+      <div class="summary-row"><span class="s-key">No. Order</span><span class="s-val" style="font-family:var(--mono);color:var(--accent);">${form.orderId||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Customer</span><span class="s-val">${form.customer||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Produk</span><span class="s-val">${form.product||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Total order</span><span class="s-val">${form.qty||'—'} pcs</span></div>
+      <div class="summary-row"><span class="s-key">Jumlah reject</span><span class="s-val">${form.qtyReject||'—'} pcs ${pct?'('+pct+')':''}</span></div>
+      <div class="summary-row"><span class="s-key">Nominal reject</span><span class="s-val">${form.nominalReject?'Rp '+parseInt(form.nominalReject).toLocaleString('id-ID'):'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Total hari produksi</span><span class="s-val">${form.hariProduksi||'—'} hari</span></div>
+      <div class="summary-row"><span class="s-key">Deadline customer</span><span class="s-val">${form.deadline||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Mulai FPS</span><span class="s-val">${form.tglMulaiFPS||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Start produksi (acc FPS)</span><span class="s-val">${form.tglStartProduksi||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Selesai produksi</span><span class="s-val">${form.tglSelesaiProduksi||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Tanggal pengiriman</span><span class="s-val">${form.tglPengiriman||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Sumber error</span><span class="s-val">${form.selectedSources.length?form.selectedSources.join(', '):'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Jenis error</span><span class="s-val">${form.errorType||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Dampak</span><span class="s-val">${form.impact?`<span class="badge ${ic}">${form.impact}</span>`:'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Catatan</span><span class="s-val">${form.catatan||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Tindakan</span><span class="s-val">${form.tindakan||'—'}</span></div>
+      <div class="summary-row"><span class="s-key">Feedback manual</span><span class="s-val">${form.feedbackManual||'—'}</span></div>
+      <div class="nav-row">
+        <button class="btn" onclick="go(-1)">← Edit</button>
+        <button class="btn success" id="save-btn" onclick="submitForm()">Simpan ke Supabase ✓</button>
+      </div>`;
+  }
+}
+
+function updateReject() {
+  const q = parseFloat(document.getElementById('f-qty')?.value || form.qty) || 0;
+  const r = parseFloat(document.getElementById('f-qtyReject')?.value) || 0;
+  const el = document.getElementById('reject-badge');
+  if (el && q>0 && r>0) el.innerHTML = `<span class="reject-badge">${((r/q)*100).toFixed(1)}% dari total order</span>`;
+}
+
+async function submitForm() {
+  collect();
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Menyimpan...';
+
+  const payload = {
+    order_id: form.orderId,
+    customer: form.customer,
+    product: form.product,
+    qty: parseInt(form.qty)||null,
+    qty_reject: parseInt(form.qtyReject)||null,
+    nominal_reject: parseInt(form.nominalReject)||null,
+    hari_produksi: parseInt(form.hariProduksi)||null,
+    deadline: form.deadline || null,
+    tgl_mulai_fps: form.tglMulaiFPS || null,
+    tgl_start_produksi: form.tglStartProduksi || null,
+    tgl_selesai_produksi: form.tglSelesaiProduksi || null,
+    tgl_pengiriman: form.tglPengiriman || null,
+    error_sources: form.selectedSources,
+    error_type: form.errorType,
+    impact: form.impact,
+    catatan: form.catatan,
+    tindakan: form.tindakan,
+    feedback_manual: form.feedbackManual
+  };
+
+  const { error } = await db.from('evaluasi').insert([payload]);
+
+  if (error) {
+    showToast('Gagal menyimpan: ' + error.message, true);
+    btn.disabled = false;
+    btn.textContent = 'Simpan ke Supabase ✓';
+    return;
+  }
+
+  showToast('Evaluasi berhasil disimpan! ✓');
+  form = fresh();
+  cur = 0;
+  render();
+  showTab('history');
+}
+
+async function renderHistory() {
+  const el = document.getElementById('history-list');
+  el.innerHTML = '<div class="loading">Memuat data...</div>';
+
+  const { data, error } = await db.from('evaluasi').select('*').order('created_at', {ascending: false});
+
+  if (error) { el.innerHTML = `<div class="history-empty">Gagal memuat data.<br>${error.message}</div>`; return; }
+  if (!data.length) { el.innerHTML = '<div class="history-empty">Belum ada evaluasi tersimpan.<br>Isi form di tab "Input" untuk memulai.</div>'; return; }
+
+  el.innerHTML = data.map(r => {
+    const ic = (r.impact||'').toLowerCase();
+    const date = r.created_at ? new Date(r.created_at).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}) : '';
+    const sources = Array.isArray(r.error_sources) ? r.error_sources : [];
+    return `<div class="history-card" onclick="openDetail('${r.id}')">
+      <div class="hc-top">
+        <div class="hc-id">${r.order_id||r.id.slice(0,8)}</div>
+        <div class="hc-date">${date}</div>
+      </div>
+      <div class="hc-customer">${r.customer||'—'}</div>
+      <div class="hc-meta">
+        <span class="hc-tag">${r.product||'—'}</span>
+        <span class="hc-tag">${r.qty||'0'} pcs</span>
+        ${r.impact?`<span class="badge ${ic}" style="font-size:10px;">${r.impact}</span>`:''}
+        ${r.qty_reject?`<span class="hc-tag">Reject: ${r.qty_reject} pcs</span>`:''}
+      </div>
+      ${sources.length?`<div class="hc-sources">Error: ${sources.join(', ')}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+async function openDetail(id) {
+  const { data, error } = await db.from('evaluasi').select('*').eq('id', id).single();
+  if (error || !data) return;
+  openRecord = data;
+  const ic = (data.impact||'').toLowerCase();
+  const sources = Array.isArray(data.error_sources) ? data.error_sources : [];
+  document.getElementById('modal-id').textContent = data.order_id || data.id.slice(0,8);
+  document.getElementById('modal-customer').textContent = data.customer || '—';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="summary-row"><span class="s-key">Produk</span><span class="s-val">${data.product||'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Total order</span><span class="s-val">${data.qty||'—'} pcs</span></div>
+    <div class="summary-row"><span class="s-key">Reject</span><span class="s-val">${data.qty_reject||'0'} pcs</span></div>
+    <div class="summary-row"><span class="s-key">Nominal reject</span><span class="s-val">${data.nominal_reject?'Rp '+data.nominal_reject.toLocaleString('id-ID'):'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Hari produksi</span><span class="s-val">${data.hari_produksi||'—'} hari</span></div>
+    <div class="summary-row"><span class="s-key">Deadline customer</span><span class="s-val">${data.deadline||'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Mulai FPS</span><span class="s-val">${data.tgl_mulai_fps||'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Start produksi</span><span class="s-val">${data.tgl_start_produksi||'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Selesai produksi</span><span class="s-val">${data.tgl_selesai_produksi||'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Tanggal pengiriman</span><span class="s-val">${data.tgl_pengiriman||'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Sumber error</span><span class="s-val">${sources.join(', ')||'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Jenis error</span><span class="s-val">${data.error_type||'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Dampak</span><span class="s-val">${data.impact?`<span class="badge ${ic}">${data.impact}</span>`:'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Catatan</span><span class="s-val">${data.catatan||'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Tindakan</span><span class="s-val">${data.tindakan||'—'}</span></div>
+    <div class="summary-row"><span class="s-key">Feedback manual</span><span class="s-val">${data.feedback_manual||'—'}</span></div>
+    <div style="margin-top:1rem;">
+      <button class="btn modal-del" onclick="deleteRecord('${data.id}')">Hapus data ini</button>
+    </div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+async function deleteRecord(id) {
+  if (!confirm('Hapus evaluasi ini?')) return;
+  const { error } = await db.from('evaluasi').delete().eq('id', id);
+  if (error) { showToast('Gagal menghapus', true); return; }
+  showToast('Data berhasil dihapus');
+  closeModal();
+  renderHistory();
+}
+
+async function renderStats() {
+  const el = document.getElementById('stats-body');
+  el.innerHTML = '<div class="loading">Memuat statistik...</div>';
+
+  const { data, error } = await db.from('evaluasi').select('*');
+  if (error || !data.length) { el.innerHTML = '<div class="history-empty">Belum ada data untuk ditampilkan.</div>'; return; }
+
+  const totalOrders = data.length;
+  const totalReject = data.reduce((s,r) => s + (r.qty_reject||0), 0);
+  const totalPcs = data.reduce((s,r) => s + (r.qty||0), 0);
+  const avgRejectPct = totalPcs > 0 ? ((totalReject/totalPcs)*100).toFixed(1) : '0';
+
+  const impactCount = {Minor:0,Major:0,Critical:0};
+  data.forEach(r => { if(r.impact) impactCount[r.impact] = (impactCount[r.impact]||0)+1; });
+
+  const sourceCounts = {};
+  data.forEach(r => (r.error_sources||[]).forEach(s => { sourceCounts[s] = (sourceCounts[s]||0)+1; }));
+  const topSources = Object.entries(sourceCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxSrc = topSources[0]?.[1] || 1;
+
+  const errorTypeCounts = {};
+  data.forEach(r => { if(r.error_type) errorTypeCounts[r.error_type] = (errorTypeCounts[r.error_type]||0)+1; });
+
+  el.innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Total evaluasi</div><div class="stat-val">${totalOrders}</div><div class="stat-sub">order tercatat</div></div>
+      <div class="stat-card"><div class="stat-label">Total reject</div><div class="stat-val">${totalReject.toLocaleString('id-ID')}</div><div class="stat-sub">${avgRejectPct}% rata-rata</div></div>
+      <div class="stat-card" style="background:var(--red-light);border-color:var(--red)"><div class="stat-label" style="color:var(--red)">Critical</div><div class="stat-val" style="color:var(--red)">${impactCount.Critical}</div></div>
+      <div class="stat-card" style="background:var(--amber-light);border-color:var(--amber)"><div class="stat-label" style="color:var(--amber)">Major</div><div class="stat-val" style="color:var(--amber)">${impactCount.Major}</div></div>
+    </div>
+    <div class="form-card">
+      <div class="section-title">Sumber error terbanyak</div>
+      ${topSources.length ? topSources.map(([src,cnt]) => `
+        <div class="chart-bar-row">
+          <div class="chart-bar-label">${src}</div>
+          <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${Math.round((cnt/maxSrc)*100)}%"></div></div>
+          <div class="chart-bar-count">${cnt}</div>
+        </div>`).join('') : '<div style="color:var(--muted);font-size:13px;">Belum ada data.</div>'}
+    </div>
+    <div class="form-card">
+      <div class="section-title">Distribusi jenis error</div>
+      ${Object.entries(errorTypeCounts).length ? Object.entries(errorTypeCounts).map(([type,cnt]) => `
+        <div class="chart-bar-row">
+          <div class="chart-bar-label">${type}</div>
+          <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${Math.round((cnt/totalOrders)*100)}%;background:var(--green)"></div></div>
+          <div class="chart-bar-count">${cnt}</div>
+        </div>`).join('') : '<div style="color:var(--muted);font-size:13px;">Belum ada data.</div>'}
+    </div>`;
+}
+
+render();
+</script>
+</body>
+</html>
